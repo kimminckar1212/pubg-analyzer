@@ -755,7 +755,7 @@ async function search() {
               const s = w.StatsTotal || {};
               return {
                 name,
-                defeats: s.Defeats || 0,
+                defeats: s.Kills || s.Defeats || 0,
                 headshots: s.HeadShots || 0,
                 damage: s.DamagePlayer || 0,
               };
