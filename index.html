@@ -555,6 +555,7 @@
       <div class="player-info">
         <div class="player-name" id="playerName"></div>
         <div class="player-id" id="playerId"></div>
+        <div id="tierBadge" style="display:flex;align-items:center;gap:8px;margin:8px 0 6px;"></div>
         <div class="titles-row" id="titlesRow"></div>
       </div>
     </div>
@@ -828,6 +829,21 @@ async function search() {
   el('searchBtn').disabled = false;
 }
 
+function getTier(stats) {
+  if (stats.roundsPlayed < 5) return { tier: 'Unranked', emoji: '❓', color: '#888888', score: 0 };
+  const kd = stats.kills > 0 ? stats.kills / Math.max(stats.roundsPlayed - stats.wins, 1) : 0;
+  const avgDmg = stats.roundsPlayed > 0 ? stats.damageDealt / stats.roundsPlayed : 0;
+  const winRate = stats.roundsPlayed > 0 ? (stats.wins / stats.roundsPlayed) * 100 : 0;
+  const score = (kd * 30) + (avgDmg / 10) + (winRate * 2);
+
+  if (score >= 80) return { tier: 'Conqueror', emoji: '🏆', color: '#FFD700', score: Math.round(score) };
+  if (score >= 60) return { tier: 'Diamond',   emoji: '💎', color: '#B9F2FF', score: Math.round(score) };
+  if (score >= 45) return { tier: 'Platinum',  emoji: '⚡', color: '#C0C0FF', score: Math.round(score) };
+  if (score >= 30) return { tier: 'Gold',      emoji: '🥇', color: '#FFA500', score: Math.round(score) };
+  if (score >= 15) return { tier: 'Silver',    emoji: '🥈', color: '#C0C0C0', score: Math.round(score) };
+  return              { tier: 'Bronze',     emoji: '🥉', color: '#CD7F32', score: Math.round(score) };
+}
+
 function getTitles(stats, weapons) {
   const titles = [];
   const kd = stats.roundsPlayed > 0 ? stats.kills / Math.max(stats.roundsPlayed - stats.wins, 1) : 0;
@@ -842,9 +858,19 @@ function getTitles(stats, weapons) {
   if (avgSurv >= 28) titles.push('🐢 생존의 달인');
   if (hsRatio >= 0.2) titles.push('🎯 저격의 신');
 
+  // 특수 칭호
+  if (avgSurv >= 25 && winRate < 5) titles.push('🪑 존버의 왕');
+  if (kd >= 3 && winRate < 5) titles.push('🔥 교전광');
+  if (hsRatio >= 0.35) titles.push('🧠 헤드만 노린다');
+  if (avgDmg >= 300 && winRate >= 12) titles.push('⚔️ 완전체');
+  if (kd < 0.5 && stats.roundsPlayed >= 30) titles.push('🌸 즐기는 게 최고');
+  if (stats.longestKill >= 300) titles.push('🦅 저 멀리서');
+  if (hsRatio >= 0.15 && avgSurv >= 20 && kd >= 2) titles.push('🎮 올라운더');
+  if (avgDmg < 100 && stats.roundsPlayed >= 20) titles.push('👻 나 여기 있었음');
+
   if (weapons.length > 0) {
     const top = weapons[0];
-    const clean = top.name.replace(/_/g,' ').replace(/Item_Weapon_/,'').split('_')[0];
+    const clean = weaponNames[top.name] || top.name.replace(/Item_Weapon_/g,'').replace(/_C$/,'').replace(/_/g,' ');
     titles.push(`🔫 ${clean} 장인`);
   }
 
@@ -856,6 +882,24 @@ function renderResult(nickname, playerId, stats, modeName, weapons, matches) {
   el('playerAvatar').textContent = nickname[0].toUpperCase();
   el('playerName').textContent = nickname;
   el('playerId').textContent = playerId;
+
+  // 티어 표시
+  const tierData = getTier(stats);
+  el('tierBadge').innerHTML = `
+    <div style="
+      display:inline-flex;align-items:center;gap:10px;
+      background:linear-gradient(135deg,rgba(0,0,0,0.4),rgba(0,0,0,0.2));
+      border:2px solid ${tierData.color};
+      padding:8px 18px;
+      margin:8px 0;
+    ">
+      <span style="font-size:2rem;line-height:1;">${tierData.emoji}</span>
+      <div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:0.65rem;letter-spacing:0.25em;color:var(--text-dim);text-transform:uppercase;">Analyzer Rank</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.8rem;font-weight:900;color:${tierData.color};letter-spacing:0.1em;line-height:1.1;text-shadow:0 0 12px ${tierData.color}88;">${tierData.tier}</div>
+      </div>
+    </div>
+  `;
 
   const titles = getTitles(stats, weapons);
   el('titlesRow').innerHTML = titles.map(t =>
