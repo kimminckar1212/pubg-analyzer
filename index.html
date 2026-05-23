@@ -732,6 +732,7 @@ async function search() {
 
     // 3. 시즌 스탯 (현재 시즌 시도 → 없으면 lifetime)
     const allModes = ['solo','solo-fpp','duo','duo-fpp','squad','squad-fpp'];
+    const rankedModes = ['squad','squad-fpp'];
 
     const mergeStats = (gameModes) => allModes.reduce((acc, mode) => {
       const m = gameModes[mode] || {};
@@ -751,7 +752,36 @@ async function search() {
     let stats = mergeStats(stData.data?.attributes?.gameModeStats || {});
     let modeName = 'Current Season';
 
-    // 현재 시즌 데이터 없으면 lifetime으로 fallback
+    // 경쟁전 스탯 항상 합산
+    try {
+      const rkStatsRes = await pubgFetch(`shards/${platform}/players/${playerId}/seasons/${seasonId}/ranked`);
+      if (rkStatsRes.ok) {
+        const rkStatsData = await rkStatsRes.json();
+        const rkModes = rkStatsData.data?.attributes?.rankedGameModeStats || {};
+        const rkStats = rankedModes.reduce((acc, mode) => {
+          const m = rkModes[mode] || {};
+          acc.roundsPlayed  += m.roundsPlayed  || 0;
+          acc.wins          += m.wins          || 0;
+          acc.kills         += m.kills         || 0;
+          acc.damageDealt   += m.damageDealt   || 0;
+          acc.headshotKills += m.headshotKills || 0;
+          acc.timeSurvived  += m.timeSurvived  || 0;
+          acc.longestKill    = Math.max(acc.longestKill || 0, m.longestKill || 0);
+          return acc;
+        }, { roundsPlayed:0, wins:0, kills:0, losses:0, damageDealt:0, headshotKills:0, timeSurvived:0, longestKill:0 });
+        // 일반 + 경쟁전 합산
+        stats.roundsPlayed  += rkStats.roundsPlayed;
+        stats.wins          += rkStats.wins;
+        stats.kills         += rkStats.kills;
+        stats.damageDealt   += rkStats.damageDealt;
+        stats.headshotKills += rkStats.headshotKills;
+        stats.timeSurvived  += rkStats.timeSurvived;
+        stats.longestKill    = Math.max(stats.longestKill || 0, rkStats.longestKill);
+        if (rkStats.roundsPlayed > 0) modeName = 'Normal + Ranked';
+      }
+    } catch(e) {}
+
+    // 둘 다 없으면 lifetime fallback
     if (stats.roundsPlayed === 0) {
       try {
         const ltRes = await pubgFetch(`shards/${platform}/players/${playerId}/seasons/lifetime`);
@@ -1023,7 +1053,7 @@ function renderResult(nickname, playerId, stats, modeName, weapons, matches, ran
   const rankColors = {
     'Bronze': '#CD7F32', 'Silver': '#C0C0C0', 'Gold': '#FFD700',
     'Platinum': '#00CED1', 'Diamond': '#B9F2FF', 'Master': '#FF6B6B',
-    'Unranked': '#666666'
+    'Survivor': '#FFD700', 'Unranked': '#666666'
   };
   const rankedColor = rankedTier ? (rankColors[rankedTier.tier] || '#888') : '#666';
   const rankedHtml = rankedTier ? `
