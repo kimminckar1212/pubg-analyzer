@@ -766,7 +766,25 @@ async function search() {
       } catch(e) {}
     }
 
-    // 4. 무기 마스터리
+    // 4. 경쟁전 랭크
+    let rankedTier = null;
+    try {
+      const rkRes = await pubgFetch(`shards/${platform}/players/${playerId}/seasons/${seasonId}/ranked`);
+      if (rkRes.ok) {
+        const rkData = await rkRes.json();
+        const sq = rkData.data?.attributes?.rankedGameModeStats?.['squad'] ||
+                   rkData.data?.attributes?.rankedGameModeStats?.['squad-fpp'] || null;
+        if (sq && sq.currentRankPoint > 0) {
+          rankedTier = {
+            tier: sq.currentTier?.tier || 'Bronze',
+            subTier: sq.currentTier?.subTier || 'V',
+            rp: sq.currentRankPoint,
+          };
+        }
+      }
+    } catch(e) {}
+
+    // 5. 무기 마스터리
     let weapons = [];
     try {
       const wRes = await pubgFetch(`shards/${platform}/players/${playerId}/weapon_mastery`);
@@ -850,7 +868,7 @@ async function search() {
     }
 
     hide('loading');
-    renderResult(nickname, playerId, stats, modeName, weapons, matches);
+    renderResult(nickname, playerId, stats, modeName, weapons, matches, rankedTier);
     show('result');
     callAI(nickname, stats, weapons);
 
@@ -886,40 +904,111 @@ function getTitles(stats, weapons) {
   const avgSurv = stats.roundsPlayed > 0 ? stats.timeSurvived / stats.roundsPlayed / 60 : 0;
   const hsRatio = stats.kills > 0 ? stats.headshotKills / stats.kills : 0;
 
-  // [칭호텍스트, 툴팁]
-  if (kd >= 5)        titles.push(['💀 전장의 악몽',    'K/D 5.0 이상']);
-  if (winRate >= 15)  titles.push(['🏆 치킨 헌터',      '승률 15% 이상']);
-  if (avgDmg >= 500)  titles.push(['💥 데미지 괴물',    '평균 데미지 500 이상']);
-  if (avgSurv >= 28)  titles.push(['🐢 생존의 달인',    '평균 생존 28분 이상']);
-  if (hsRatio >= 0.2) titles.push(['🎯 저격의 신',      '헤드샷 비율 20% 이상']);
+  // 등급별 색상
+  const C = {
+    일반: '#BBBBBB',
+    고급: '#4CAF7D',
+    희귀: '#5B9BD5',
+    영웅: '#B06FE3',
+    전설: '#FFD700',
+  };
 
-  if (avgSurv >= 25 && winRate < 5)        titles.push(['🪑 존버의 왕',      '생존 25분+ & 승률 5% 미만']);
-  if (kd >= 3 && winRate < 5)              titles.push(['🔥 교전광',         'K/D 3.0+ & 승률 5% 미만']);
-  if (hsRatio >= 0.35)                     titles.push(['🧠 헤드만 노린다',  '헤드샷 비율 35% 이상']);
-  if (avgDmg >= 300 && winRate >= 12)      titles.push(['⚔️ 완전체',         '데미지 300+ & 승률 12% 이상']);
-  if (kd < 0.5 && stats.roundsPlayed >= 30) titles.push(['🌸 즐기는 게 최고', 'K/D 0.5 미만 & 30판 이상']);
-  if (stats.longestKill >= 300)            titles.push(['🦅 저 멀리서',      '최장 킬 300m 이상']);
-  if (hsRatio >= 0.15 && avgSurv >= 20 && kd >= 2) titles.push(['🎮 올라운더', '헤드샷·생존·K/D 모두 준수']);
-  if (avgDmg < 100 && stats.roundsPlayed >= 20)    titles.push(['👻 나 여기 있었음', '평균 데미지 100 미만 & 20판+']);
+  // [텍스트, 툴팁, 색상]
+  // ===== 전적 기반 칭호 =====
+  if (kd >= 5)        titles.push(['💀 전장의 악몽',    'K/D 5.0 이상',              C.영웅]);
+  if (winRate >= 15)  titles.push(['🏆 치킨 헌터',      '승률 15% 이상',              C.희귀]);
+  if (avgDmg >= 500)  titles.push(['💥 데미지 괴물',    '평균 데미지 500 이상',       C.영웅]);
+  if (avgSurv >= 28)  titles.push(['🐢 생존의 달인',    '평균 생존 28분 이상',        C.희귀]);
+  if (hsRatio >= 0.2) titles.push(['🎯 저격의 신',      '헤드샷 비율 20% 이상',       C.영웅]);
 
-  // 누적 통계 기반 (기준 높음)
-  if (stats.wins >= 500)        titles.push(['👑 치킨의 신',     '통산 치킨 500회 이상']);
-  else if (stats.wins >= 100)   titles.push(['🐔 치킨 컬렉터',   '통산 치킨 100회 이상']);
-  if (stats.kills >= 20000)     titles.push(['💣 대학살자',       '통산 킬 20,000회 이상']);
-  else if (stats.kills >= 5000) titles.push(['⚡ 킬 머신',        '통산 킬 5,000회 이상']);
-  if (stats.damageDealt >= 5000000)     titles.push(['☢️ 파괴의 화신',  '통산 데미지 500만 이상']);
-  else if (stats.damageDealt >= 1000000) titles.push(['🔴 백만 데미지', '통산 데미지 100만 이상']);
+  if (avgSurv >= 25 && winRate < 5)        titles.push(['🪑 존버의 왕',      '생존 25분+ & 승률 5% 미만',   C.희귀]);
+  if (kd >= 3 && winRate < 5)              titles.push(['🔥 교전광',         'K/D 3.0+ & 승률 5% 미만',     C.고급]);
+  if (hsRatio >= 0.35)                     titles.push(['🧠 헤드만 노린다',  '헤드샷 비율 35% 이상',         C.영웅]);
+  if (avgDmg >= 300 && winRate >= 12)      titles.push(['⚔️ 완전체',         '데미지 300+ & 승률 12% 이상',  C.전설]);
+  if (kd < 0.5 && stats.roundsPlayed >= 30) titles.push(['🌸 즐기는 게 최고', 'K/D 0.5 미만 & 30판 이상',   C.일반]);
+  if (stats.longestKill >= 300)            titles.push(['🦅 저 멀리서',      '최장 킬 300m 이상',            C.희귀]);
+  if (hsRatio >= 0.15 && avgSurv >= 20 && kd >= 2) titles.push(['🎮 올라운더', '헤드샷·생존·K/D 모두 준수', C.고급]);
+  if (avgDmg < 100 && stats.roundsPlayed >= 20)    titles.push(['👻 나 여기 있었음', '평균 데미지 100 미만 & 20판+', C.일반]);
 
+  // 누적 통계 기반
+  if (stats.wins >= 500)        titles.push(['👑 치킨의 신',     '통산 치킨 500회 이상',  C.전설]);
+  else if (stats.wins >= 100)   titles.push(['🐔 치킨 컬렉터',   '통산 치킨 100회 이상',  C.영웅]);
+  if (stats.kills >= 20000)     titles.push(['💣 대학살자',       '통산 킬 20,000회 이상', C.전설]);
+  else if (stats.kills >= 5000) titles.push(['⚡ 킬 머신',        '통산 킬 5,000회 이상',  C.영웅]);
+  if (stats.damageDealt >= 5000000)      titles.push(['☢️ 파괴의 화신', '통산 데미지 500만 이상', C.전설]);
+  else if (stats.damageDealt >= 1000000) titles.push(['🔴 백만 데미지', '통산 데미지 100만 이상', C.영웅]);
+
+  // ===== 무기 마스터리 기반 칭호 =====
   if (weapons.length > 0) {
-    const top = weapons[0];
-    const clean = weaponNames[top.name] || top.name.replace(/Item_Weapon_/g,'').replace(/_C$/,'').replace(/_/g,' ');
-    titles.push([`🔫 ${clean} 장인`, `주력 무기 ${clean}`]);
+    const pistols = ['Item_Weapon_DesertEagle_C','Item_Weapon_G18_C','Item_Weapon_M1911_C',
+                     'Item_Weapon_M9_C','Item_Weapon_NagantM1895_C','Item_Weapon_Rhino_C'];
+    const grenadeTypes = ['Item_Weapon_Grenade_C','Item_Weapon_Molotov_C','Item_Weapon_StickyGrenade_C'];
+
+    // 권총 합산 킬
+    const pistolKills = weapons.filter(w => pistols.includes(w.name)).reduce((s,w) => s + w.defeats, 0);
+    if (pistolKills >= 300) titles.push(['🕴️ 존윅',        `권총 합산 킬 ${pistolKills}회`, C.전설]);
+    else if (pistolKills >= 100) titles.push(['🔫 권총 전문가', `권총 합산 킬 ${pistolKills}회`, C.고급]);
+    else if (pistolKills >= 30)  titles.push(['🔫 권총 애호가', `권총 합산 킬 ${pistolKills}회`, C.일반]);
+
+    // 수류탄 합산 킬
+    const grenadeKills = weapons.filter(w => grenadeTypes.includes(w.name)).reduce((s,w) => s + w.defeats, 0);
+    if (grenadeKills >= 100)     titles.push(['💣 수류탄 장인',  `수류탄 합산 킬 ${grenadeKills}회`, C.영웅]);
+    else if (grenadeKills >= 30) titles.push(['💣 수류탄 전문가',`수류탄 합산 킬 ${grenadeKills}회`, C.고급]);
+    else if (grenadeKills >= 10) titles.push(['💣 수류탄 애호가',`수류탄 합산 킬 ${grenadeKills}회`, C.일반]);
+
+    // 팬 킬
+    const panW = weapons.find(w => w.name === 'Item_Weapon_Pan_C');
+    const panKills = panW ? panW.defeats : 0;
+    if (panKills >= 30)      titles.push(['🍳 프라이팬 장인',  `프라이팬 킬 ${panKills}회`, C.전설]);
+    else if (panKills >= 10) titles.push(['🍳 프라이팬 전문가',`프라이팬 킬 ${panKills}회`, C.영웅]);
+    else if (panKills >= 3)  titles.push(['🍳 프라이팬 애호가',`프라이팬 킬 ${panKills}회`, C.고급]);
+
+    // 석궁 킬
+    const crossW = weapons.find(w => w.name === 'Item_Weapon_Crossbow_C');
+    const crossKills = crossW ? crossW.defeats : 0;
+    if (crossKills >= 50)      titles.push(['🏹 석궁 장인',  `석궁 킬 ${crossKills}회`, C.영웅]);
+    else if (crossKills >= 15) titles.push(['🏹 석궁 전문가',`석궁 킬 ${crossKills}회`, C.고급]);
+    else if (crossKills >= 5)  titles.push(['🏹 석궁 애호가',`석궁 킬 ${crossKills}회`, C.일반]);
+
+    // 총기별 3단계 칭호 (최고 단계만)
+    const gunMap = {
+      'Item_Weapon_HK416_C': 'M416',
+      'Item_Weapon_AK47_C': 'AKM',
+      'Item_Weapon_SCAR-L_C': 'SCAR-L',
+      'Item_Weapon_BerylM762_C': 'Beryl M762',
+      'Item_Weapon_Kar98k_C': 'Kar98k',
+      'Item_Weapon_AWM_C': 'AWM',
+      'Item_Weapon_M24_C': 'M24',
+      'Item_Weapon_Mini14_C': 'Mini 14',
+      'Item_Weapon_SKS_C': 'SKS',
+      'Item_Weapon_VSS_C': 'VSS',
+      'Item_Weapon_UMP_C': 'UMP45',
+      'Item_Weapon_Vector_C': 'Vector',
+      'Item_Weapon_M249_C': 'M249',
+      'Item_Weapon_DP28_C': 'DP-28',
+      'Item_Weapon_AUG_C': 'AUG',
+      'Item_Weapon_G36C_C': 'G36C',
+      'Item_Weapon_QBZ95_C': 'QBZ95',
+      'Item_Weapon_Mk47Mutant_C': 'Mk47 Mutant',
+      'Item_Weapon_Mosin_C': 'Mosin-Nagant',
+      'Item_Weapon_FNFal_C': 'SLR',
+      'Item_Weapon_Dragunov_C': 'Dragunov',
+    };
+
+    for (const [key, name] of Object.entries(gunMap)) {
+      const w = weapons.find(wp => wp.name === key);
+      if (!w) continue;
+      const k = w.defeats;
+      if (k >= 200)     titles.push([`🔫 ${name} 장인`,  `${name} 킬 ${k}회`, C.희귀]);
+      else if (k >= 80) titles.push([`🔫 ${name} 전문가`,`${name} 킬 ${k}회`, C.고급]);
+      else if (k >= 20) titles.push([`🔫 ${name} 애호가`,`${name} 킬 ${k}회`, C.일반]);
+    }
   }
 
   return titles;
 }
 
-function renderResult(nickname, playerId, stats, modeName, weapons, matches) {
+function renderResult(nickname, playerId, stats, modeName, weapons, matches, rankedTier) {
   // 플레이어 카드
   el('playerAvatar').textContent = nickname[0].toUpperCase();
   el('playerName').textContent = nickname;
@@ -927,26 +1016,52 @@ function renderResult(nickname, playerId, stats, modeName, weapons, matches) {
 
   // 티어 표시
   const tierData = getTier(stats);
-  el('tierBadge').innerHTML = `
+  // 경쟁전 티어 색상
+  const rankColors = {
+    'Bronze': '#CD7F32', 'Silver': '#C0C0C0', 'Gold': '#FFD700',
+    'Platinum': '#00CED1', 'Diamond': '#B9F2FF', 'Master': '#FF6B6B',
+    'Unranked': '#666666'
+  };
+  const rankedColor = rankedTier ? (rankColors[rankedTier.tier] || '#888') : '#666';
+  const rankedHtml = rankedTier ? `
     <div style="
       display:flex;flex-direction:column;align-items:center;justify-content:center;
       background:linear-gradient(160deg,rgba(255,255,255,0.04),rgba(0,0,0,0.3));
-      border:1px solid ${tierData.color}66;
-      border-top:3px solid ${tierData.color};
-      padding:14px 22px;
-      min-width:120px;
+      border:1px solid ${rankedColor}66;
+      border-top:3px solid ${rankedColor};
+      padding:14px 18px;
+      min-width:110px;
       text-align:center;
       gap:4px;
     ">
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:0.6rem;letter-spacing:0.3em;color:var(--text-dim);text-transform:uppercase;">Analyzer Rank</div>
-      <div style="font-size:2.4rem;line-height:1.1;">${tierData.emoji}</div>
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.5rem;font-weight:900;color:${tierData.color};letter-spacing:0.12em;line-height:1;text-shadow:0 0 16px ${tierData.color}66;">${tierData.tier}</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:0.6rem;letter-spacing:0.3em;color:var(--text-dim);text-transform:uppercase;">Ranked</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.3rem;font-weight:900;color:${rankedColor};letter-spacing:0.1em;line-height:1.2;text-shadow:0 0 12px ${rankedColor}66;">${rankedTier.tier}</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:0.9rem;color:${rankedColor}cc;">${rankedTier.subTier} · ${rankedTier.rp} RP</div>
+    </div>` : '';
+
+  el('tierBadge').innerHTML = `
+    <div style="display:flex;gap:10px;align-items:stretch;">
+      ${rankedHtml}
+      <div style="
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        background:linear-gradient(160deg,rgba(255,255,255,0.04),rgba(0,0,0,0.3));
+        border:1px solid ${tierData.color}66;
+        border-top:3px solid ${tierData.color};
+        padding:14px 18px;
+        min-width:110px;
+        text-align:center;
+        gap:4px;
+      ">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:0.6rem;letter-spacing:0.3em;color:var(--text-dim);text-transform:uppercase;">Analyzer Rank</div>
+        <div style="font-size:2rem;line-height:1.1;">${tierData.emoji}</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.3rem;font-weight:900;color:${tierData.color};letter-spacing:0.1em;line-height:1;text-shadow:0 0 16px ${tierData.color}66;">${tierData.tier}</div>
+      </div>
     </div>
   `;
 
 
-  el('titlesRow').innerHTML = getTitles(stats, weapons).map(([text, tip]) =>
-    `<span class="title-badge" title="${tip}" style="cursor:default;position:relative;">${text}</span>`
+  el('titlesRow').innerHTML = getTitles(stats, weapons).map(([text, tip, color]) =>
+    `<span class="title-badge" title="${tip}" style="cursor:default;position:relative;border-color:${color}44;color:${color};">${text}</span>`
   ).join('');
 
   // 스탯
@@ -1107,11 +1222,15 @@ function callAI(nickname, stats, weapons) {
     else if (avgSurv >= 20) strength = `평균 생존 시간이 ${Math.round(avgSurv)}분으로 전장 판단력이 좋습니다`;
     else strength = `K/D ${kd.toFixed(2)}로 교전에서 안정적인 성과를 내고 있습니다`;
 
-    // 개선점
-    if (winRate < 5 && kd >= 2) improve = '킬은 많지만 승률이 낮은 편입니다. 무리한 교전보다 최후의 생존을 노려보세요.';
+    // 개선점 - 잘하는 사람은 칭찬만
+    if (kd >= 5 && winRate >= 15) improve = '압도적인 교전 실력과 높은 승률을 동시에 갖춘 최상위 플레이어입니다. 이 실력이라면 어떤 전장에서도 핵심 역할을 해낼 수 있습니다.';
+    else if (kd >= 5) improve = 'K/D가 최상위권입니다. 교전 하나하나에서 완벽한 결과를 만들어내는 실력자입니다.';
+    else if (winRate >= 20) improve = '승률이 매우 높습니다. 전략적 판단력과 팀 기여도가 뛰어난 플레이어입니다.';
+    else if (kd >= 3 && winRate >= 10) improve = '교전 실력과 생존 능력 모두 상위권입니다. 꾸준히 이 수준을 유지하는 것 자체가 대단합니다.';
+    else if (winRate < 5 && kd >= 2) improve = '킬은 많지만 승률이 낮은 편입니다. 무리한 교전보다 최후의 생존을 노려보세요.';
     else if (avgDmg < 150) improve = '평균 데미지가 낮습니다. 교전 참여를 늘리고 적에게 더 적극적으로 압박을 가해보세요.';
     else if (hsRatio < 10 && kd >= 2) improve = '헤드샷 비율을 높이면 교전 효율이 더욱 올라갈 것입니다. 조준 연습을 꾸준히 해보세요.';
-    else if (stats.roundsPlayed < 20) improve = '아직 판수가 적어 데이터가 쌓이는 중입니다. 더 많은 경험을 통해 스타일을 다듬어가세요.';
+    else if (stats.roundsPlayed < 20) improve = '아직 데이터가 쌓이는 중이지만 현재 지표가 매우 안정적입니다. 이 페이스를 유지해보세요.';
     else improve = '현재 플레이 방식을 유지하면서 팀원과의 호흡을 맞추면 더 좋은 결과를 기대할 수 있습니다.';
 
     const weaponLine = topWeapon
