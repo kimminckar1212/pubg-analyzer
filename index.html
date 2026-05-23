@@ -785,13 +785,15 @@ async function search() {
 ;
           weapons = Object.entries(summary)
             .map(([name, w]) => {
+              // 18.2 이후: OfficialStatsTotal + CompetitiveStatsTotal 합산
+              // 18.2 이전: StatsTotal (더 이상 업데이트 안됨)
+              const o = w.OfficialStatsTotal || {};
+              const c = w.CompetitiveStatsTotal || {};
               const s = w.StatsTotal || {};
-              return {
-                name,
-                defeats: s.Kills || s.Defeats || 0,
-                headshots: s.HeadShots || 0,
-                damage: s.DamagePlayer || 0,
-              };
+              const kills    = (o.Kills    || 0) + (c.Kills    || 0) || (s.Kills    || s.Defeats || 0);
+              const headshots= (o.HeadShots|| 0) + (c.HeadShots|| 0) || (s.HeadShots|| 0);
+              const damage   = (o.DamagePlayer||0)+(c.DamagePlayer||0)|| (s.DamagePlayer||0);
+              return { name, defeats: kills, headshots, damage };
             })
             .filter(w => w.defeats > 0)
             .sort((a, b) => b.defeats - a.defeats)
