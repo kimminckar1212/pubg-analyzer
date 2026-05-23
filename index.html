@@ -848,7 +848,56 @@ function renderResult(nickname, playerId, stats, modeName, weapons, matches) {
   } else {
     const maxDefeats = Math.max(...weapons.map(w => w.defeats), 1);
     el('weaponList').innerHTML = weapons.map((w, i) => {
-      const clean = w.name.replace(/Item_Weapon_/g,'').replace(/_C$/,'').replace(/_/g,' ');
+      const weaponNames = {
+        'Item_Weapon_HK416_C': 'M416',
+        'Item_Weapon_AK47_C': 'AKM',
+        'Item_Weapon_M16A4_C': 'M16A4',
+        'Item_Weapon_SCAR-L_C': 'SCAR-L',
+        'Item_Weapon_Aug_C': 'AUG',
+        'Item_Weapon_G36C_C': 'G36C',
+        'Item_Weapon_QBZ95_C': 'QBZ95',
+        'Item_Weapon_Mk47Mutant_C': 'Mk47 Mutant',
+        'Item_Weapon_Vector_C': 'Vector',
+        'Item_Weapon_UMP_C': 'UMP45',
+        'Item_Weapon_PP19_C': 'PP-19',
+        'Item_Weapon_Thompson_C': 'Tommy Gun',
+        'Item_Weapon_Bizon_C': 'PP-19 Bizon',
+        'Item_Weapon_MP5K_C': 'MP5K',
+        'Item_Weapon_Mini14_C': 'Mini 14',
+        'Item_Weapon_VSS_C': 'VSS',
+        'Item_Weapon_SKS_C': 'SKS',
+        'Item_Weapon_SLR_C': 'SLR',
+        'Item_Weapon_Mk14_C': 'Mk14',
+        'Item_Weapon_KAR98K_C': 'Kar98k',
+        'Item_Weapon_M24_C': 'M24',
+        'Item_Weapon_AWM_C': 'AWM',
+        'Item_Weapon_Mosin_C': 'Mosin-Nagant',
+        'Item_Weapon_Lynx_C': 'Lynx AMR',
+        'Item_Weapon_Win94_C': 'Winchester',
+        'Item_Weapon_DP28_C': 'DP-28',
+        'Item_Weapon_M249_C': 'M249',
+        'Item_Weapon_MG3_C': 'MG3',
+        'Item_Weapon_Shotgun_M1014_C': 'S1897',
+        'Item_Weapon_Shotgun_S686_C': 'S686',
+        'Item_Weapon_Shotgun_S12K_C': 'S12K',
+        'Item_Weapon_DBS_C': 'DBS',
+        'Item_Weapon_Saiga12_C': 'Saiga-12',
+        'Item_Weapon_FNFal_C': 'FN FAL',
+        'Item_Weapon_BerylM762_C': 'Beryl M762',
+        'Item_Weapon_DesertEagle_C': 'Desert Eagle',
+        'Item_Weapon_G18_C': 'G18C',
+        'Item_Weapon_M1911_C': 'P1911',
+        'Item_Weapon_P92_C': 'P92',
+        'Item_Weapon_R1895_C': 'R1895',
+        'Item_Weapon_R45_C': 'R45',
+        'Item_Weapon_Skorpion_C': 'Skorpion',
+        'Item_Weapon_FlareGun_C': 'Flare Gun',
+        'Item_Weapon_Crossbow_1_C': 'Crossbow',
+        'Item_Weapon_Machete_C': 'Machete',
+        'Item_Weapon_Pan_C': 'Pan',
+        'Item_Weapon_CowbarNew_C': 'Crowbar',
+      };
+      const clean = weaponNames[w.name] || w.name.replace(/Item_Weapon_/g,'').replace(/_C$/,'').replace(/_/g,' ');
       const hsRatio = w.defeats > 0 ? ((w.headshots / w.defeats) * 100).toFixed(1) : '0.0';
       const defeatPct = Math.round((w.defeats / maxDefeats) * 100);
       const hsPct = Math.min(Math.round(parseFloat(hsRatio)), 100);
