@@ -1,5 +1,9 @@
 {
-  "rewrites": [
-    { "source": "/api/pubg/(.*)", "destination": "/api/pubg" }
-  ]
+  "version": 2,
+  "functions": {
+    "api/pubg.js": {
+      "memory": 128,
+      "maxDuration": 10
+    }
+  }
 }
