@@ -257,13 +257,45 @@
   }
 
   .title-badge {
-    background: rgba(200,168,75,0.12);
-    border: 1px solid rgba(200,168,75,0.35);
+    background: rgba(200,168,75,0.08);
+    border: 1px solid rgba(200,168,75,0.3);
     color: var(--gold-light);
-    padding: 4px 12px;
+    padding: 5px 12px;
     font-size: 0.78rem;
     font-family: 'Barlow Condensed', sans-serif;
     letter-spacing: 0.08em;
+    position: relative;
+    transition: background 0.2s, border-color 0.2s;
+  }
+
+  .title-badge:hover {
+    background: rgba(200,168,75,0.18);
+    border-color: rgba(200,168,75,0.6);
+  }
+
+  .title-badge::after {
+    content: attr(title);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(10,11,13,0.95);
+    border: 1px solid rgba(200,168,75,0.4);
+    color: #ccc;
+    font-size: 0.68rem;
+    letter-spacing: 0.05em;
+    padding: 4px 10px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 10;
+    font-family: 'Noto Sans KR', sans-serif;
+    font-weight: 400;
+  }
+
+  .title-badge:hover::after {
+    opacity: 1;
   }
 
   /* 섹션 타이틀 */
@@ -555,9 +587,9 @@
       <div class="player-info">
         <div class="player-name" id="playerName"></div>
         <div class="player-id" id="playerId"></div>
-        <div id="tierBadge" style="display:flex;align-items:center;gap:8px;margin:8px 0 6px;"></div>
         <div class="titles-row" id="titlesRow"></div>
       </div>
+      <div id="tierBadge" style="margin-left:auto;flex-shrink:0;"></div>
     </div>
 
     <!-- 시즌 스탯 -->
@@ -852,26 +884,34 @@ function getTitles(stats, weapons) {
   const avgSurv = stats.roundsPlayed > 0 ? stats.timeSurvived / stats.roundsPlayed / 60 : 0;
   const hsRatio = stats.kills > 0 ? stats.headshotKills / stats.kills : 0;
 
-  if (kd >= 5) titles.push('💀 전장의 악몽');
-  if (winRate >= 15) titles.push('🏆 치킨 헌터');
-  if (avgDmg >= 500) titles.push('💥 데미지 괴물');
-  if (avgSurv >= 28) titles.push('🐢 생존의 달인');
-  if (hsRatio >= 0.2) titles.push('🎯 저격의 신');
+  // [칭호텍스트, 툴팁]
+  if (kd >= 5)        titles.push(['💀 전장의 악몽',    'K/D 5.0 이상']);
+  if (winRate >= 15)  titles.push(['🏆 치킨 헌터',      '승률 15% 이상']);
+  if (avgDmg >= 500)  titles.push(['💥 데미지 괴물',    '평균 데미지 500 이상']);
+  if (avgSurv >= 28)  titles.push(['🐢 생존의 달인',    '평균 생존 28분 이상']);
+  if (hsRatio >= 0.2) titles.push(['🎯 저격의 신',      '헤드샷 비율 20% 이상']);
 
-  // 특수 칭호
-  if (avgSurv >= 25 && winRate < 5) titles.push('🪑 존버의 왕');
-  if (kd >= 3 && winRate < 5) titles.push('🔥 교전광');
-  if (hsRatio >= 0.35) titles.push('🧠 헤드만 노린다');
-  if (avgDmg >= 300 && winRate >= 12) titles.push('⚔️ 완전체');
-  if (kd < 0.5 && stats.roundsPlayed >= 30) titles.push('🌸 즐기는 게 최고');
-  if (stats.longestKill >= 300) titles.push('🦅 저 멀리서');
-  if (hsRatio >= 0.15 && avgSurv >= 20 && kd >= 2) titles.push('🎮 올라운더');
-  if (avgDmg < 100 && stats.roundsPlayed >= 20) titles.push('👻 나 여기 있었음');
+  if (avgSurv >= 25 && winRate < 5)        titles.push(['🪑 존버의 왕',      '생존 25분+ & 승률 5% 미만']);
+  if (kd >= 3 && winRate < 5)              titles.push(['🔥 교전광',         'K/D 3.0+ & 승률 5% 미만']);
+  if (hsRatio >= 0.35)                     titles.push(['🧠 헤드만 노린다',  '헤드샷 비율 35% 이상']);
+  if (avgDmg >= 300 && winRate >= 12)      titles.push(['⚔️ 완전체',         '데미지 300+ & 승률 12% 이상']);
+  if (kd < 0.5 && stats.roundsPlayed >= 30) titles.push(['🌸 즐기는 게 최고', 'K/D 0.5 미만 & 30판 이상']);
+  if (stats.longestKill >= 300)            titles.push(['🦅 저 멀리서',      '최장 킬 300m 이상']);
+  if (hsRatio >= 0.15 && avgSurv >= 20 && kd >= 2) titles.push(['🎮 올라운더', '헤드샷·생존·K/D 모두 준수']);
+  if (avgDmg < 100 && stats.roundsPlayed >= 20)    titles.push(['👻 나 여기 있었음', '평균 데미지 100 미만 & 20판+']);
+
+  // 누적 통계 기반 (기준 높음)
+  if (stats.wins >= 500)        titles.push(['👑 치킨의 신',     '통산 치킨 500회 이상']);
+  else if (stats.wins >= 100)   titles.push(['🐔 치킨 컬렉터',   '통산 치킨 100회 이상']);
+  if (stats.kills >= 20000)     titles.push(['💣 대학살자',       '통산 킬 20,000회 이상']);
+  else if (stats.kills >= 5000) titles.push(['⚡ 킬 머신',        '통산 킬 5,000회 이상']);
+  if (stats.damageDealt >= 5000000)     titles.push(['☢️ 파괴의 화신',  '통산 데미지 500만 이상']);
+  else if (stats.damageDealt >= 1000000) titles.push(['🔴 백만 데미지', '통산 데미지 100만 이상']);
 
   if (weapons.length > 0) {
     const top = weapons[0];
     const clean = weaponNames[top.name] || top.name.replace(/Item_Weapon_/g,'').replace(/_C$/,'').replace(/_/g,' ');
-    titles.push(`🔫 ${clean} 장인`);
+    titles.push([`🔫 ${clean} 장인`, `주력 무기 ${clean}`]);
   }
 
   return titles;
@@ -887,23 +927,24 @@ function renderResult(nickname, playerId, stats, modeName, weapons, matches) {
   const tierData = getTier(stats);
   el('tierBadge').innerHTML = `
     <div style="
-      display:inline-flex;align-items:center;gap:10px;
-      background:linear-gradient(135deg,rgba(0,0,0,0.4),rgba(0,0,0,0.2));
-      border:2px solid ${tierData.color};
-      padding:8px 18px;
-      margin:8px 0;
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      background:linear-gradient(160deg,rgba(255,255,255,0.04),rgba(0,0,0,0.3));
+      border:1px solid ${tierData.color}66;
+      border-top:3px solid ${tierData.color};
+      padding:14px 22px;
+      min-width:120px;
+      text-align:center;
+      gap:4px;
     ">
-      <span style="font-size:2rem;line-height:1;">${tierData.emoji}</span>
-      <div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:0.65rem;letter-spacing:0.25em;color:var(--text-dim);text-transform:uppercase;">Analyzer Rank</div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.8rem;font-weight:900;color:${tierData.color};letter-spacing:0.1em;line-height:1.1;text-shadow:0 0 12px ${tierData.color}88;">${tierData.tier}</div>
-      </div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:0.6rem;letter-spacing:0.3em;color:var(--text-dim);text-transform:uppercase;">Analyzer Rank</div>
+      <div style="font-size:2.4rem;line-height:1.1;">${tierData.emoji}</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.5rem;font-weight:900;color:${tierData.color};letter-spacing:0.12em;line-height:1;text-shadow:0 0 16px ${tierData.color}66;">${tierData.tier}</div>
     </div>
   `;
 
-  const titles = getTitles(stats, weapons);
-  el('titlesRow').innerHTML = titles.map(t =>
-    `<span class="title-badge">${t}</span>`
+
+  el('titlesRow').innerHTML = getTitles(stats, weapons).map(([text, tip]) =>
+    `<span class="title-badge" title="${tip}" style="cursor:default;position:relative;">${text}</span>`
   ).join('');
 
   // 스탯
