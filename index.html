@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PUBG Analyzer</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold: #C8A84B;
+    --gold-light: #F0D080;
+    --dark: #0A0B0D;
+    --dark2: #111318;
+    --dark3: #1A1D24;
+    --dark4: #222630;
+    --border: rgba(200,168,75,0.25);
+    --text: #E8E8E8;
+    --text-dim: #888;
+    --red: #E05555;
+    --green: #4CAF7D;
+    --blue: #5B9BD5;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--dark);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* 배경 그리드 */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(200,168,75,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(200,168,75,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 24px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* 헤더 */
+  header {
+    padding: 40px 0 32px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 40px;
+  }
+
+  .logo {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 900;
+    font-size: 2.2rem;
+    letter-spacing: 0.08em;
+    color: var(--gold);
+    text-transform: uppercase;
+  }
+
+  .logo span { color: var(--text); }
+
+  .tagline {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  /* 검색 */
+  .search-section {
+    margin-bottom: 40px;
+  }
+
+  .search-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.75rem;
+    letter-spacing: 0.2em;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .search-row {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+  }
+
+  .search-input {
+    flex: 1;
+    background: var(--dark3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 14px 18px;
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .search-input:focus { border-color: var(--gold); }
+  .search-input::placeholder { color: var(--text-dim); }
+
+  .platform-select {
+    background: var(--dark3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 14px 16px;
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 0.9rem;
+    outline: none;
+    cursor: pointer;
+    min-width: 120px;
+  }
+
+  .platform-select option { background: var(--dark3); }
+
+  .search-btn {
+    background: var(--gold);
+    color: var(--dark);
+    border: none;
+    padding: 14px 28px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+  }
+
+  .search-btn:hover { background: var(--gold-light); }
+  .search-btn:active { transform: scale(0.98); }
+  .search-btn:disabled { background: #444; color: #888; cursor: not-allowed; }
+
+  /* 로딩 */
+  .loading {
+    display: none;
+    text-align: center;
+    padding: 60px 0;
+    color: var(--text-dim);
+  }
+
+  .loading.show { display: block; }
+
+  .loading-bar {
+    width: 200px;
+    height: 2px;
+    background: var(--dark4);
+    margin: 20px auto;
+    overflow: hidden;
+  }
+
+  .loading-bar::after {
+    content: '';
+    display: block;
+    width: 60px;
+    height: 100%;
+    background: var(--gold);
+    animation: loading 1.2s ease-in-out infinite;
+  }
+
+  @keyframes loading {
+    0% { transform: translateX(-60px); }
+    100% { transform: translateX(200px); }
+  }
+
+  /* 에러 */
+  .error-box {
+    display: none;
+    background: rgba(224,85,85,0.1);
+    border: 1px solid rgba(224,85,85,0.4);
+    padding: 16px 20px;
+    color: var(--red);
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+  }
+
+  .error-box.show { display: block; }
+
+  /* 결과 */
+  #result { display: none; }
+  #result.show { display: block; }
+
+  /* 플레이어 헤더 카드 */
+  .player-card {
+    background: var(--dark2);
+    border: 1px solid var(--border);
+    padding: 28px 32px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .player-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 4px;
+    background: var(--gold);
+  }
+
+  .player-avatar {
+    width: 64px;
+    height: 64px;
+    background: var(--dark4);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 1.8rem;
+    font-weight: 900;
+    color: var(--gold);
+    flex-shrink: 0;
+  }
+
+  .player-info { flex: 1; }
+
+  .player-name {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 1.8rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: #fff;
+    text-transform: uppercase;
+  }
+
+  .player-id {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-top: 4px;
+    font-family: monospace;
+  }
+
+  /* 칭호 배지 */
+  .titles-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .title-badge {
+    background: rgba(200,168,75,0.12);
+    border: 1px solid rgba(200,168,75,0.35);
+    color: var(--gold-light);
+    padding: 4px 12px;
+    font-size: 0.78rem;
+    font-family: 'Barlow Condensed', sans-serif;
+    letter-spacing: 0.08em;
+  }
+
+  /* 섹션 타이틀 */
+  .section-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.72rem;
+    letter-spacing: 0.22em;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* 스탯 그리드 */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card {
+    background: var(--dark2);
+    border: 1px solid var(--border);
+    padding: 18px 16px;
+    text-align: center;
+    transition: border-color 0.2s;
+  }
+
+  .stat-card:hover { border-color: rgba(200,168,75,0.5); }
+
+  .stat-value {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 2rem;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1;
+  }
+
+  .stat-value.gold { color: var(--gold); }
+  .stat-value.green { color: var(--green); }
+  .stat-value.red { color: var(--red); }
+
+  .stat-label {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-top: 6px;
+  }
+
+  /* 무기 마스터리 */
+  .weapon-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+
+  .weapon-item {
+    background: var(--dark2);
+    border: 1px solid var(--border);
+    padding: 14px 18px;
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr 3fr;
+    align-items: center;
+    gap: 16px;
+    transition: border-color 0.2s;
+  }
+
+  .weapon-item:hover { border-color: rgba(200,168,75,0.4); }
+
+  .weapon-rank {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+  }
+
+  .weapon-name-wrap { display: flex; flex-direction: column; }
+
+  .weapon-name {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: #fff;
+  }
+
+  .weapon-rank-label {
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    margin-top: 1px;
+  }
+
+  .weapon-stat { text-align: center; }
+
+  .weapon-stat-val {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #fff;
+  }
+
+  .weapon-stat-lbl {
+    font-size: 0.62rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .weapon-bar-wrap { display: flex; flex-direction: column; gap: 4px; }
+
+  .weapon-bar-row { display: flex; align-items: center; gap: 8px; }
+
+  .weapon-bar-bg {
+    flex: 1;
+    height: 4px;
+    background: var(--dark4);
+    overflow: hidden;
+  }
+
+  .weapon-bar-fill {
+    height: 100%;
+    background: var(--gold);
+    transition: width 0.8s ease;
+  }
+
+  .weapon-bar-fill.hs { background: var(--red); }
+
+  .weapon-bar-lbl {
+    font-size: 0.62rem;
+    color: var(--text-dim);
+    width: 28px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  /* 매치 히스토리 */
+  .match-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+
+  .match-item {
+    background: var(--dark2);
+    border: 1px solid var(--border);
+    padding: 12px 18px;
+    display: grid;
+    grid-template-columns: 60px 80px 1fr 60px 60px 60px 80px;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.88rem;
+  }
+
+  .match-rank {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 700;
+    text-align: center;
+  }
+
+  .match-rank.win { color: var(--gold); }
+  .match-rank.top10 { color: var(--green); }
+  .match-rank.loss { color: var(--text-dim); }
+
+  .match-mode {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .match-map { color: var(--text-dim); font-size: 0.82rem; }
+
+  .match-stat { text-align: center; }
+  .match-stat-val { font-family: 'Barlow Condensed', sans-serif; font-size: 1rem; font-weight: 600; }
+  .match-stat-lbl { font-size: 0.6rem; color: var(--text-dim); text-transform: uppercase; }
+
+  .match-dmg { color: var(--gold-light); }
+  .match-time { color: var(--text-dim); font-size: 0.78rem; text-align: right; }
+
+  /* AI 분석 */
+  .ai-box {
+    background: var(--dark2);
+    border: 1px solid rgba(91,155,213,0.3);
+    padding: 24px 28px;
+    margin-bottom: 24px;
+    position: relative;
+  }
+
+  .ai-box::before {
+    content: 'AI';
+    position: absolute;
+    top: -10px; right: 20px;
+    background: var(--blue);
+    color: #fff;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    padding: 2px 10px;
+  }
+
+  .ai-loading {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--text-dim);
+    font-size: 0.88rem;
+  }
+
+  .ai-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--blue);
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+
+  .ai-dot:nth-child(2) { animation-delay: 0.2s; }
+  .ai-dot:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.3; transform: scale(0.8); }
+    50% { opacity: 1; transform: scale(1.2); }
+  }
+
+  .ai-text {
+    font-size: 0.95rem;
+    line-height: 1.8;
+    color: var(--text);
+    display: none;
+  }
+
+  .ai-text.show { display: block; }
+
+  /* 반응형 */
+  @media (max-width: 640px) {
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .weapon-item { grid-template-columns: 1fr 1fr; }
+    .weapon-bar-wrap { display: none; }
+    .match-item { grid-template-columns: 50px 1fr 50px 50px; }
+    .match-map, .match-time { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="logo">PUBG <span>Analyzer</span></div>
+    <div class="tagline">Player Statistics & AI Analysis</div>
+  </header>
+
+  <div class="search-section">
+    <div class="search-label">Player Search</div>
+    <div class="search-row">
+      <input class="search-input" id="nicknameInput" type="text" placeholder="닉네임을 입력하세요" />
+      <select class="platform-select" id="platformSelect">
+        <option value="steam">스팀</option>
+        <option value="kakao">카카오</option>
+      </select>
+      <button class="search-btn" id="searchBtn" onclick="search()">SEARCH</button>
+    </div>
+  </div>
+
+  <div class="error-box" id="errorBox"></div>
+  <div class="loading" id="loading">
+    <div style="font-family:'Barlow Condensed',sans-serif;letter-spacing:0.15em;font-size:0.8rem;color:var(--text-dim);">LOADING DATA</div>
+    <div class="loading-bar"></div>
+  </div>
+
+  <div id="result">
+
+    <!-- 플레이어 카드 -->
+    <div class="player-card">
+      <div class="player-avatar" id="playerAvatar"></div>
+      <div class="player-info">
+        <div class="player-name" id="playerName"></div>
+        <div class="player-id" id="playerId"></div>
+        <div class="titles-row" id="titlesRow"></div>
+      </div>
+    </div>
+
+    <!-- 시즌 스탯 -->
+    <div class="section-title">Season Stats — Squad FPP</div>
+    <div class="stats-grid" id="statsGrid"></div>
+
+    <!-- AI 분석 -->
+    <div class="section-title">AI 플레이 스타일 분석</div>
+    <div class="ai-box" id="aiBox">
+      <div class="ai-loading" id="aiLoading">
+        <div class="ai-dot"></div>
+        <div class="ai-dot"></div>
+        <div class="ai-dot"></div>
+        <span>플레이 스타일 분석 중...</span>
+      </div>
+      <div class="ai-text" id="aiText"></div>
+    </div>
+
+    <!-- 무기 마스터리 -->
+    <div class="section-title">Weapon Mastery — TOP 5</div>
+    <div class="weapon-list" id="weaponList"></div>
+
+    <!-- 매치 히스토리 -->
+    <div class="section-title">Recent Matches</div>
+    <div class="match-list" id="matchList"></div>
+
+  </div>
+</div>
+
+<script>
+// API 키는 서버에서 관리
+// API 호출 함수 - Vercel 프록시 사용
+async function pubgFetch(path, queryParams = '') {
+  const url = `/api/pubg?path=${encodeURIComponent(path)}${queryParams ? '&' + queryParams : ''}`;
+  return fetch(url, { headers: { 'Content-Type': 'application/json' } });
+}
+
+
+
+function show(id) { document.getElementById(id).classList.add('show'); }
+function hide(id) { document.getElementById(id).classList.remove('show'); }
+function el(id) { return document.getElementById(id); }
+
+function fmt(n, d=1) {
+  if (n === undefined || n === null) return '0';
+  return Number(n).toFixed(d);
+}
+
+document.getElementById('nicknameInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') search();
+});
+
+async function search() {
+  const nickname = el('nicknameInput').value.trim();
+  const platform = el('platformSelect').value;
+  if (!nickname) return;
+
+  el('searchBtn').disabled = true;
+  hide('result');
+  hide('errorBox');
+  show('loading');
+
+  try {
+    // 1. 플레이어 조회
+    const pRes = await pubgFetch(`shards/${platform}/players`, `filter[playerNames]=${encodeURIComponent(nickname)}`);
+    if (!pRes.ok) {
+      const err = await pRes.json().catch(() => ({}));
+      throw new Error(err?.errors?.[0]?.title || `플레이어를 찾을 수 없습니다 (${pRes.status})`);
+    }
+    const pData = await pRes.json();
+    const player = pData.data[0];
+    const playerId = player.id;
+
+    // 2. 시즌 목록 → 최신 시즌
+    const sRes = await pubgFetch(`shards/${platform}/seasons`);
+    const sData = await sRes.json();
+    const currentSeason = sData.data.find(s => s.attributes.isCurrentSeason);
+    const seasonId = currentSeason?.id || sData.data[sData.data.length - 1].id;
+
+    // 3. 시즌 스탯 (현재 시즌 시도 → 없으면 lifetime)
+    const allModes = ['solo','solo-fpp','duo','duo-fpp','squad','squad-fpp'];
+
+    const mergeStats = (gameModes) => allModes.reduce((acc, mode) => {
+      const m = gameModes[mode] || {};
+      acc.roundsPlayed  += m.roundsPlayed  || 0;
+      acc.wins          += m.wins          || 0;
+      acc.kills         += m.kills         || 0;
+      acc.losses        += m.losses        || 0;
+      acc.damageDealt   += m.damageDealt   || 0;
+      acc.headshotKills += m.headshotKills || 0;
+      acc.timeSurvived  += m.timeSurvived  || 0;
+      acc.longestKill    = Math.max(acc.longestKill || 0, m.longestKill || 0);
+      return acc;
+    }, { roundsPlayed:0, wins:0, kills:0, losses:0, damageDealt:0, headshotKills:0, timeSurvived:0, longestKill:0 });
+
+    const stRes = await pubgFetch(`shards/${platform}/players/${playerId}/seasons/${seasonId}`);
+    const stData = await stRes.json();
+    let stats = mergeStats(stData.data?.attributes?.gameModeStats || {});
+    let modeName = 'Current Season';
+
+    // 현재 시즌 데이터 없으면 lifetime으로 fallback
+    if (stats.roundsPlayed === 0) {
+      try {
+        const ltRes = await pubgFetch(`shards/${platform}/players/${playerId}/seasons/lifetime`);
+        if (ltRes.ok) {
+          const ltData = await ltRes.json();
+          const ltStats = mergeStats(ltData.data?.attributes?.gameModeStats || {});
+          if (ltStats.roundsPlayed > 0) {
+            stats = ltStats;
+            modeName = 'Lifetime';
+          }
+        }
+      } catch(e) {}
+    }
+
+    // 4. 무기 마스터리
+    let weapons = [];
+    try {
+      const wRes = await pubgFetch(`shards/${platform}/players/${playerId}/weapon_mastery`);
+      console.log('weapon mastery status:', wRes.status);
+      if (wRes.ok) {
+        const wData = await wRes.json();
+        console.log('weapon raw keys:', JSON.stringify(Object.keys(wData.data?.attributes || {})));
+        // PUBG API는 WeaponSummaries 또는 weaponsummary 둘 다 가능
+        const attr = wData.data?.attributes || {};
+        const summary = attr.weaponSummaries || attr.WeaponSummaries || attr.weaponsummary || {};
+        console.log('weapon summary keys count:', Object.keys(summary).length);
+        if (Object.keys(summary).length > 0) {
+          // 첫 번째 항목 구조 확인
+          const firstKey = Object.keys(summary)[0];
+          const firstVal = summary[firstKey];
+          console.log('first weapon sample FULL:', JSON.stringify(firstVal));
+          weapons = Object.entries(summary)
+            .map(([name, w]) => {
+              const s = w.StatsTotal || {};
+              return {
+                name,
+                defeats: s.Defeats || 0,
+                headshots: s.HeadShots || 0,
+                damage: s.DamagePlayer || 0,
+              };
+            })
+            .filter(w => w.defeats > 0)
+            .sort((a, b) => b.defeats - a.defeats)
+            .slice(0, 5);
+        }
+        console.log('weapons found:', weapons.length);
+      } else {
+        const errBody = await wRes.text().catch(() => 'unknown');
+        console.log('weapon mastery failed:', wRes.status, errBody.slice(0, 200));
+      }
+    } catch(e) { console.log('weapon mastery exception:', e); }
+
+    // 5. 매치 히스토리 - 플레이어 ID로 재조회
+    let matchIds = player.relationships?.matches?.data?.slice(0, 8) || [];
+    console.log('matchIds from search:', matchIds.length);
+
+    // 매치가 없으면 플레이어 ID로 직접 재조회
+    if (matchIds.length === 0) {
+      try {
+        const p2Res = await pubgFetch(`shards/${platform}/players/${playerId}`);
+        if (p2Res.ok) {
+          const p2Data = await p2Res.json();
+          matchIds = p2Data.data?.relationships?.matches?.data?.slice(0, 8) || [];
+          console.log('matchIds from direct lookup:', matchIds.length);
+        }
+      } catch(e) { console.log('match refetch error:', e); }
+    }
+    const matches = [];
+    for (const m of matchIds) {
+      try {
+        const mRes = await pubgFetch(`shards/${platform}/matches/${m.id}`);
+        if (!mRes.ok) continue;
+        const mData = await mRes.json();
+        const roster = mData.included?.find(i =>
+          i.type === 'participant' &&
+          i.attributes?.stats?.playerId === playerId
+        );
+        if (roster) {
+          const s = roster.attributes.stats;
+          const matchInfo = mData.data.attributes;
+          matches.push({
+            rank: s.winPlace,
+            kills: s.kills,
+            damage: Math.round(s.damageDealt),
+            survivalTime: Math.round(s.timeSurvived / 60),
+            mode: matchInfo.gameMode,
+            mapName: matchInfo.mapName,
+            playedAt: matchInfo.createdAt,
+          });
+        }
+      } catch(e) {}
+    }
+
+    hide('loading');
+    renderResult(nickname, playerId, stats, modeName, weapons, matches);
+    show('result');
+    callAI(nickname, stats, weapons);
+
+  } catch(err) {
+    hide('loading');
+    el('errorBox').textContent = err.message;
+    show('errorBox');
+  }
+
+  el('searchBtn').disabled = false;
+}
+
+function getTitles(stats, weapons) {
+  const titles = [];
+  const kd = stats.roundsPlayed > 0 ? stats.kills / Math.max(stats.roundsPlayed - stats.wins, 1) : 0;
+  const winRate = stats.roundsPlayed > 0 ? (stats.wins / stats.roundsPlayed) * 100 : 0;
+  const avgDmg = stats.roundsPlayed > 0 ? stats.damageDealt / stats.roundsPlayed : 0;
+  const avgSurv = stats.roundsPlayed > 0 ? stats.timeSurvived / stats.roundsPlayed / 60 : 0;
+  const hsRatio = stats.kills > 0 ? stats.headshotKills / stats.kills : 0;
+
+  if (kd >= 5) titles.push('💀 전장의 악몽');
+  if (winRate >= 15) titles.push('🏆 치킨 헌터');
+  if (avgDmg >= 500) titles.push('💥 데미지 괴물');
+  if (avgSurv >= 28) titles.push('🐢 생존의 달인');
+  if (hsRatio >= 0.2) titles.push('🎯 저격의 신');
+
+  if (weapons.length > 0) {
+    const top = weapons[0];
+    const clean = top.name.replace(/_/g,' ').replace(/Item_Weapon_/,'').split('_')[0];
+    titles.push(`🔫 ${clean} 장인`);
+  }
+
+  return titles;
+}
+
+function renderResult(nickname, playerId, stats, modeName, weapons, matches) {
+  // 플레이어 카드
+  el('playerAvatar').textContent = nickname[0].toUpperCase();
+  el('playerName').textContent = nickname;
+  el('playerId').textContent = playerId;
+
+  const titles = getTitles(stats, weapons);
+  el('titlesRow').innerHTML = titles.map(t =>
+    `<span class="title-badge">${t}</span>`
+  ).join('');
+
+  // 스탯
+  const deaths = (stats.roundsPlayed - stats.wins) || 1;
+  const kd = stats.kills > 0 ? (stats.kills / deaths).toFixed(2) : '0.00';
+  const winRate = stats.roundsPlayed > 0 ? ((stats.wins / stats.roundsPlayed) * 100).toFixed(1) : '0.0';
+  const avgDmg = stats.roundsPlayed > 0 ? Math.round(stats.damageDealt / stats.roundsPlayed) : 0;
+  const avgKills = stats.roundsPlayed > 0 ? (stats.kills / stats.roundsPlayed).toFixed(1) : '0.0';
+
+  el('statsGrid').innerHTML = `
+    <div class="stat-card">
+      <div class="stat-value gold">${kd}</div>
+      <div class="stat-label">K/D Ratio</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value ${parseFloat(winRate) >= 10 ? 'green' : ''}">${winRate}%</div>
+      <div class="stat-label">Win Rate</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">${avgDmg}</div>
+      <div class="stat-label">Avg Damage</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">${avgKills}</div>
+      <div class="stat-label">Avg Kills</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">${stats.wins || 0}</div>
+      <div class="stat-label">Wins</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">${stats.roundsPlayed || 0}</div>
+      <div class="stat-label">Matches</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">${stats.headshotKills || 0}</div>
+      <div class="stat-label">Headshots</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">${stats.longestKill ? Math.round(stats.longestKill) : 0}m</div>
+      <div class="stat-label">Longest Kill</div>
+    </div>
+  `;
+  el('statsGrid').previousElementSibling.textContent = `Season Stats — ${modeName}`;
+
+  // 무기
+  if (weapons.length === 0) {
+    el('weaponList').innerHTML = '<div style="color:var(--text-dim);font-size:0.88rem;padding:16px;">무기 마스터리 데이터가 없습니다.</div>';
+  } else {
+    const maxDefeats = Math.max(...weapons.map(w => w.defeats), 1);
+    el('weaponList').innerHTML = weapons.map((w, i) => {
+      const clean = w.name.replace(/Item_Weapon_/g,'').replace(/_C$/,'').replace(/_/g,' ');
+      const hsRatio = w.defeats > 0 ? ((w.headshots / w.defeats) * 100).toFixed(1) : '0.0';
+      const defeatPct = Math.round((w.defeats / maxDefeats) * 100);
+      const hsPct = Math.min(Math.round(parseFloat(hsRatio)), 100);
+      return `
+        <div class="weapon-item">
+          <div class="weapon-name-wrap">
+            <div class="weapon-rank-label">#${i+1}</div>
+            <div class="weapon-name">${clean}</div>
+          </div>
+          <div class="weapon-stat">
+            <div class="weapon-stat-val">${w.defeats.toLocaleString()}</div>
+            <div class="weapon-stat-lbl">Defeats</div>
+          </div>
+          <div class="weapon-stat">
+            <div class="weapon-stat-val">${w.headshots.toLocaleString()}</div>
+            <div class="weapon-stat-lbl">Headshots</div>
+          </div>
+          <div class="weapon-stat">
+            <div class="weapon-stat-val">${hsRatio}%</div>
+            <div class="weapon-stat-lbl">HS Rate</div>
+          </div>
+          <div class="weapon-bar-wrap">
+            <div class="weapon-bar-row">
+              <div class="weapon-bar-bg"><div class="weapon-bar-fill" style="width:${defeatPct}%"></div></div>
+              <div class="weapon-bar-lbl">KIL</div>
+            </div>
+            <div class="weapon-bar-row">
+              <div class="weapon-bar-bg"><div class="weapon-bar-fill hs" style="width:${hsPct}%"></div></div>
+              <div class="weapon-bar-lbl">HS</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // 매치
+  if (matches.length === 0) {
+    el('matchList').innerHTML = '<div style="color:var(--text-dim);font-size:0.88rem;padding:16px;">최근 매치 데이터가 없습니다.</div>';
+  } else {
+    const mapNames = {
+      'Baltic_Main': 'Erangel', 'Erangel_Main': 'Erangel',
+      'Desert_Main': 'Miramar', 'Savage_Main': 'Sanhok',
+      'DihorOtok_Main': 'Vikendi', 'Range_Main': 'Camp Jackal',
+      'Summerland_Main': 'Karakin', 'Tiger_Main': 'Taego',
+      'Neon_Main': 'Rondo', 'Kiki_Main': 'Deston',
+    };
+    el('matchList').innerHTML = matches.map(m => {
+      const rankClass = m.rank === 1 ? 'win' : m.rank <= 10 ? 'top10' : 'loss';
+      const rankText = m.rank === 1 ? '#1 WIN' : `#${m.rank}`;
+      const mapName = mapNames[m.mapName] || m.mapName;
+      const date = new Date(m.playedAt).toLocaleDateString('ko-KR', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+      return `
+        <div class="match-item">
+          <div class="match-rank ${rankClass}">${rankText}</div>
+          <div class="match-mode">${m.mode.toUpperCase()}</div>
+          <div class="match-map">${mapName}</div>
+          <div class="match-stat">
+            <div class="match-stat-val">${m.kills}</div>
+            <div class="match-stat-lbl">Kills</div>
+          </div>
+          <div class="match-stat">
+            <div class="match-stat-val match-dmg">${m.damage}</div>
+            <div class="match-stat-lbl">Dmg</div>
+          </div>
+          <div class="match-stat">
+            <div class="match-stat-val">${m.survivalTime}m</div>
+            <div class="match-stat-lbl">Surv</div>
+          </div>
+          <div class="match-time">${date}</div>
+        </div>
+      `;
+    }).join('');
+  }
+}
+
+function callAI(nickname, stats, weapons) {
+  el('aiLoading').style.display = 'flex';
+  el('aiText').classList.remove('show');
+
+  setTimeout(() => {
+    const kd = stats.kills > 0 ? stats.kills / Math.max(stats.roundsPlayed - stats.wins, 1) : 0;
+    const winRate = stats.roundsPlayed > 0 ? (stats.wins / stats.roundsPlayed) * 100 : 0;
+    const avgDmg = stats.roundsPlayed > 0 ? stats.damageDealt / stats.roundsPlayed : 0;
+    const hsRatio = stats.kills > 0 ? (stats.headshotKills / stats.kills) * 100 : 0;
+    const avgSurv = stats.roundsPlayed > 0 ? stats.timeSurvived / stats.roundsPlayed / 60 : 0;
+    const topWeapon = weapons[0]
+      ? weapons[0].name.replace(/Item_Weapon_/g,'').replace(/_C$/,'').replace(/_/g,' ')
+      : null;
+
+    let style = '';
+    let strength = '';
+    let improve = '';
+
+    // 플레이 스타일 판단
+    if (kd >= 4) style = '뛰어난 전투 실력을 가진 공격형';
+    else if (kd >= 2.5) style = '안정적인 교전 능력을 갖춘 균형형';
+    else if (kd >= 1.5) style = '꾸준한 성과를 내는 성장형';
+    else style = '생존을 중시하는 신중형';
+
+    // 강점
+    if (hsRatio >= 25) strength = `헤드샷 비율이 ${hsRatio.toFixed(0)}%로 매우 높아 정밀한 조준 실력이 돋보입니다`;
+    else if (avgDmg >= 400) strength = `평균 데미지 ${Math.round(avgDmg)}로 팀에 대한 딜 기여도가 높습니다`;
+    else if (winRate >= 10) strength = `승률 ${winRate.toFixed(1)}%로 최후까지 살아남는 능력이 뛰어납니다`;
+    else if (avgSurv >= 20) strength = `평균 생존 시간이 ${Math.round(avgSurv)}분으로 전장 판단력이 좋습니다`;
+    else strength = `K/D ${kd.toFixed(2)}로 교전에서 안정적인 성과를 내고 있습니다`;
+
+    // 개선점
+    if (winRate < 5 && kd >= 2) improve = '킬은 많지만 승률이 낮은 편입니다. 무리한 교전보다 최후의 생존을 노려보세요.';
+    else if (avgDmg < 150) improve = '평균 데미지가 낮습니다. 교전 참여를 늘리고 적에게 더 적극적으로 압박을 가해보세요.';
+    else if (hsRatio < 10 && kd >= 2) improve = '헤드샷 비율을 높이면 교전 효율이 더욱 올라갈 것입니다. 조준 연습을 꾸준히 해보세요.';
+    else if (stats.roundsPlayed < 20) improve = '아직 판수가 적어 데이터가 쌓이는 중입니다. 더 많은 경험을 통해 스타일을 다듬어가세요.';
+    else improve = '현재 플레이 방식을 유지하면서 팀원과의 호흡을 맞추면 더 좋은 결과를 기대할 수 있습니다.';
+
+    const weaponLine = topWeapon
+      ? `주력 무기는 <strong>${topWeapon}</strong>으로 분석됩니다. `
+      : '';
+
+    const text = `당신은 <strong>${style} 플레이어</strong>입니다. ${weaponLine}${strength}. ${improve}`;
+
+    el('aiLoading').style.display = 'none';
+    el('aiText').innerHTML = text;
+    el('aiText').classList.add('show');
+  }, 1200);
+}
+</script>
+</body>
+</html>

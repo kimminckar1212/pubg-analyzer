@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/api/pubg/(.*)", "destination": "/api/pubg" }
+  ]
+}
