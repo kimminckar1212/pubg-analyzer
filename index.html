@@ -998,7 +998,7 @@ function callAI(nickname, stats, weapons) {
     const hsRatio = stats.kills > 0 ? (stats.headshotKills / stats.kills) * 100 : 0;
     const avgSurv = stats.roundsPlayed > 0 ? stats.timeSurvived / stats.roundsPlayed / 60 : 0;
     const topWeapon = weapons[0]
-      ? weapons[0].name.replace(/Item_Weapon_/g,'').replace(/_C$/,'').replace(/_/g,' ')
+      ? (weaponNames[weapons[0].name] || weapons[0].name.replace(/Item_Weapon_/g,'').replace(/_C$/,'').replace(/_/g,' '))
       : null;
 
     let style = '';
