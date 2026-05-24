@@ -924,6 +924,7 @@ async function search() {
     hide('loading');
     el('errorBox').textContent = err.message;
     show('errorBox');
+    lastSearchTime = 0; // 실패 시 쿨타임 초기화
   }
 
   el('searchBtn').disabled = false;
