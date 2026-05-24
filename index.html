@@ -989,7 +989,10 @@ function getTitles(stats, weapons) {
 
     // 수류탄 합산 킬
     const grenadeKills = weapons.filter(w => grenadeTypes.includes(w.name)).reduce((s,w) => s + w.defeats, 0);
-    if (grenadeKills >= 100)     titles.push(['💣 수류탄 장인',  `수류탄 합산 킬 ${grenadeKills}회`, C.영웅]);
+    const totalKills = weapons.reduce((s,w) => s + w.defeats, 0);
+    const grenadeRatio = totalKills > 0 ? grenadeKills / totalKills : 0;
+    if (grenadeRatio >= 0.1 && grenadeKills >= 10) titles.push(['💥 폭탄광', `수류탄 킬이 전체 킬의 ${Math.round(grenadeRatio*100)}%`, C.전설]);
+    else if (grenadeKills >= 100)     titles.push(['💣 수류탄 장인',  `수류탄 합산 킬 ${grenadeKills}회`, C.영웅]);
     else if (grenadeKills >= 30) titles.push(['💣 수류탄 전문가',`수류탄 합산 킬 ${grenadeKills}회`, C.고급]);
     else if (grenadeKills >= 10) titles.push(['💣 수류탄 애호가',`수류탄 합산 킬 ${grenadeKills}회`, C.일반]);
 
