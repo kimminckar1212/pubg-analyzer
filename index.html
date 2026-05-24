@@ -705,12 +705,26 @@ document.getElementById('nicknameInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') search();
 });
 
+let lastSearchTime = 0;
+const COOLDOWN_MS = 60000; // 1분
+
 async function search() {
   const nickname = el('nicknameInput').value.trim();
   const platform = el('platformSelect').value;
   if (!nickname) return;
 
+  const now = Date.now();
+  const elapsed = now - lastSearchTime;
+  if (lastSearchTime > 0 && elapsed < COOLDOWN_MS) {
+    const remain = Math.ceil((COOLDOWN_MS - elapsed) / 1000);
+    el('errorBox').textContent = `⏳ 연속 검색 방지를 위해 ${remain}초 후에 다시 검색할 수 있습니다.`;
+    show('errorBox');
+    return;
+  }
+
+  lastSearchTime = now;
   el('searchBtn').disabled = true;
+  el('searchBtn').textContent = 'LOADING...';
   hide('result');
   hide('errorBox');
   show('loading');
@@ -913,6 +927,7 @@ async function search() {
   }
 
   el('searchBtn').disabled = false;
+  el('searchBtn').textContent = 'SEARCH';
 }
 
 function getTier(stats) {
