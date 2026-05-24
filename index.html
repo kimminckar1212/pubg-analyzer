@@ -918,7 +918,7 @@ async function search() {
     hide('loading');
     renderResult(nickname, playerId, stats, modeName, weapons, matches, rankedTier);
     show('result');
-    callAI(nickname, stats, weapons, matches);
+    callAI(nickname, stats, weapons, matches, modeName);
 
   } catch(err) {
     hide('loading');
@@ -1247,11 +1247,20 @@ function renderResult(nickname, playerId, stats, modeName, weapons, matches, ran
   }
 }
 
-function callAI(nickname, stats, weapons, matches) {
+function callAI(nickname, stats, weapons, matches, modeName) {
   el('aiLoading').style.display = 'flex';
   el('aiText').classList.remove('show');
 
   setTimeout(() => {
+    // 이번 시즌 미플레이 체크
+    if (modeName === 'Lifetime' || modeName === 'Ranked') {
+      const modeLabel = modeName === 'Ranked' ? '이번 시즌 일반 매치' : '이번 시즌';
+      el('aiLoading').style.display = 'none';
+      el('aiText').innerHTML = `<span style="color:var(--text-dim);">⚠️ ${modeLabel} 플레이 기록이 없어 누적 데이터를 기준으로 표시되고 있습니다. AI 분석은 현재 시즌 데이터가 있을 때 더 정확하게 제공됩니다.</span>`;
+      el('aiText').classList.add('show');
+      return;
+    }
+
     const kd = stats.kills > 0 ? stats.kills / Math.max(stats.roundsPlayed - stats.wins, 1) : 0;
     const winRate = stats.roundsPlayed > 0 ? (stats.wins / stats.roundsPlayed) * 100 : 0;
     const avgDmg = stats.roundsPlayed > 0 ? stats.damageDealt / stats.roundsPlayed : 0;
